@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(main)
 
 set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda-12.5")
-set(CMAKE_PREFIX_PATH "/home/huloves/libtorch/share/cmake/Torch")
+set(CMAKE_PREFIX_PATH "~/libtorch/share/cmake/Torch")
 
 find_package(Torch REQUIRED)
 
