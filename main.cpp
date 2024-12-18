@@ -53,9 +53,10 @@ void predict_room(void)
         torch::Tensor x_train = x.index({torch::indexing::Slice(0, -10)});
         torch::Tensor x_test = x.index({torch::indexing::Slice(-10, x.numel())});
 
-        std::cout << "x:\n" << x << std::endl;
-        std::cout << "x_train:\n" << x_train << std::endl;
-        std::cout << "x_test:\n" << x_test << std::endl;
+        // std::cout << "x:\n" << x << std::endl;
+        // std::cout << "x_train:\n" << x_train << std::endl;
+        // std::cout << "x_test:\n" << x_test << std::endl;
+        std::cout << "x_test:\n" << x_test[0].item<float>() << std::endl;
 }
 
 void learn_torch(void)
