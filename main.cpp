@@ -1,101 +1,48 @@
-#include <torch/script.h>
 #include <torch/torch.h>
-
 #include <iostream>
-#include <memory>
 
-void dynamic_calculation_graph1(void)
+int main(int argc, char *argv[])
 {
-        torch::Tensor x = torch::ones({2, 2}, torch::requires_grad(true));
-	torch::Tensor y = x + 2;
-        torch::Tensor z = y * y;
-        torch::Tensor t = torch::mean(z);
+	// 初始化数据 X 和 y
+	torch::Tensor X = torch::tensor({{0.0, 0.0}, {1.0, 1.0}, {2.0, 2.0}}, torch::kFloat32);
+	torch::Tensor y = torch::tensor({0.0, 1.0, 2.0}, torch::kFloat32);
 
-	std::cout << "x:\n" << x << std::endl;
-	std::cout << "y:\n" << y << std::endl;
-	std::cout << "z:\n" << z << std::endl;
-        std::cout << "t:\n" << t << std::endl;
+	// 初始化权重和偏差
+	torch::Tensor w = torch::rand({2}, torch::requires_grad(true).dtype(torch::kFloat32));
+	torch::Tensor b = torch::randn({1}, torch::requires_grad(true));
 
-	std::cout << y.grad_fn()->name() << std::endl;
-        std::cout << z.grad_fn()->name() << std::endl;
-        std::cout << t.grad_fn()->name() << std::endl;
+	// 设置学习率和迭代次数
+	double learning_rate = 0.01;
+	int num_iterations = 10000;
 
-        t.backward();
-        std::cout << "t.grad():\n" << t.grad() << std::endl;
-        std::cout << "z.grad():\n" << z.grad() << std::endl;
-        std::cout << "y.grad():\n" << y.grad() << std::endl;
-        std::cout << "x.grad():\n" << x.grad() << std::endl;
-}
+	for (int i = 0; i < num_iterations; ++i) {
+		// 预测并计算损失
+		torch::Tensor prediction = torch::mm(X, w.view({2, 1})) + b;
+		torch::Tensor loss = torch::mse_loss(prediction.view_as(y), y);
 
-void dynamic_calculation_graph2(void)
-{
-        torch::Tensor s = torch::tensor({{0.01, 0.02}}, torch::requires_grad(true));
-        torch::Tensor x = torch::ones({2, 2}, torch::requires_grad(true));
+		// 反向传播来计算梯度
+		loss.backward();
 
-	std::cout << "s:\n" << s << std::endl;
-        std::cout << "x:\n" << x << std::endl;
+		// 更新参数
+		{
+			torch::NoGradGuard no_grad;  // 更新时不计算梯度
+			w -= learning_rate * w.grad();
+			b -= learning_rate * b.grad();
 
-        for (int i = 0; i < 10; i++)
-                s = s.mm(x);
-        
-        auto z = torch::mean(s);
+			// 清除梯度
+			w.grad().zero_();
+			b.grad().zero_();
+		}
 
-        z.backward();
-
-        std::cout << "x.grad():\n" << x.grad() << std::endl;
-}
-
-void predict_room(void)
-{
-        torch::Tensor x = torch::linspace(0, 100, 100, torch::dtype(torch::kFloat));
-        torch::Tensor rand = torch::randn(100) * 10;
-        torch::Tensor y = x + rand;
-        torch::Tensor x_train = x.index({torch::indexing::Slice(0, -10)});
-        torch::Tensor x_test = x.index({torch::indexing::Slice(-10, x.numel())});
-
-        // std::cout << "x:\n" << x << std::endl;
-        // std::cout << "x_train:\n" << x_train << std::endl;
-        // std::cout << "x_test:\n" << x_test << std::endl;
-        std::cout << "x_test:\n" << x_test[0].item<float>() << std::endl;
-}
-
-void learn_torch(void)
-{
-	if (torch::cuda::is_available()) {
-		std::cout << "support CUDA" << std::endl;
-	} else {
-		std::cout << "not support CUDA" << std::endl;
+		// 每隔100轮输出一次损失
+		if (i % 100 == 0) {
+			std::cout << "Iteration " << i << " Loss: " << loss.item<float>() << std::endl;
+		}
 	}
 
-        predict_room();
-}
+	// 打印最终学到的权重和偏差
+	std::cout << "Weight:\n" << w << std::endl;
+	std::cout << "Bias:\n" << b << std::endl;
 
-bool learn = true;
-
-int main(int argc, const char* argv[])
-{
-        if (learn == true) {
-	        learn_torch();
-        } else {
-                if(argc != 2) {
-                    std::cerr << "usage: main <path-to-exported-script-module>\n";
-                    return -1;
-                }
-
-                torch::Device device(torch::kCUDA);
-                // Deserialize the ScriptModule from a file using torch::jit::load()
-                torch::jit::script::Module module = torch::jit::load(argv[1]);
-                module.to(device);
-
-                // Create a vector of inputs
-                std::vector<torch::jit::IValue> inputs;
-                inputs.push_back(torch::ones({1, 3, 224, 224}).to(device));
-
-                // Exectute the model
-                at::Tensor output = module.forward(inputs).toTensor();
-
-                std::cout << output.slice(/*dims=*/1, /*start=*/0, /*end=*/5) << '\n';
-
-                std::cout << "ok\n";
-        }
+	return 0;
 }
